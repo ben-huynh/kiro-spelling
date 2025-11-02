@@ -155,6 +155,27 @@
         .next-btn:hover {
             background: #F57C00;
         }
+        
+        .progress-container {
+            width: 100%;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            height: 25px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -175,6 +196,10 @@
         <div class="quiz-area" id="quizArea">
             <div class="score" id="scoreDisplay">Score: 0/0</div>
             
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%;">0%</div>
+            </div>
+            
             <div class="word-display" id="wordDisplay">
                 Click "Hear Word" to start!
             </div>
@@ -185,7 +210,11 @@
             <div class="input-area">
                 <input type="text" class="spelling-input" id="spellingInput" 
                        placeholder="Type the spelling here..." 
-                       onkeypress="handleKeyPress(event)">
+                       onkeypress="handleKeyPress(event)"
+                       autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       spellcheck="false">
                 <button class="submit-btn" onclick="checkSpelling()">Submit</button>
             </div>
             
@@ -505,6 +534,7 @@
         let score = 0;
         let totalAttempts = 0;
         let usedWords = [];
+        let usVoice = null;
 
         function selectGrade(grade) {
             currentGrade = grade;
@@ -540,12 +570,15 @@
 
         function nextWord() {
             currentWord = getRandomWord();
-            document.getElementById('wordDisplay').textContent = "Click 'Hear Word' to listen!";
+            document.getElementById('wordDisplay').textContent = "Listen carefully and spell the word!";
             document.getElementById('spellingInput').value = '';
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('nextBtn').style.display = 'none';
             document.getElementById('spellingInput').focus();
             updateScore();
+            updateProgressBar();
+            
+            setTimeout(() => speakWord(), 500);
         }
 
         function speakWord() {
@@ -553,6 +586,9 @@
                 const utterance = new SpeechSynthesisUtterance(currentWord.word);
                 utterance.rate = 0.7;
                 utterance.pitch = 1;
+                if (usVoice) {
+                    utterance.voice = usVoice;
+                }
                 speechSynthesis.speak(utterance);
                 
                 document.getElementById('wordDisplay').textContent = `Listen carefully and spell the word!`;
@@ -565,6 +601,9 @@
             if (currentWord && 'speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(`Definition: ${currentWord.definition}`);
                 utterance.rate = 0.8;
+                if (usVoice) {
+                    utterance.voice = usVoice;
+                }
                 speechSynthesis.speak(utterance);
             } else {
                 alert(`Definition: ${currentWord.definition}`);
@@ -572,28 +611,38 @@
         }
 
         function checkSpelling() {
-            const userInput = document.getElementById('spellingInput').value.trim().toLowerCase();
+            const userInput = document.getElementById('spellingInput').value.trim();
             const correctSpelling = currentWord.word.toLowerCase();
             const feedbackDiv = document.getElementById('feedback');
             
             totalAttempts++;
             
-            if (userInput === correctSpelling) {
+            if (userInput.toLowerCase() === correctSpelling) {
                 score++;
                 feedbackDiv.className = 'feedback correct';
                 feedbackDiv.textContent = `✅ Correct! "${currentWord.word}" - ${currentWord.definition}`;
             } else {
                 feedbackDiv.className = 'feedback incorrect';
-                feedbackDiv.textContent = `❌ Incorrect. The correct spelling is "${currentWord.word}" - ${currentWord.definition}`;
+                feedbackDiv.textContent = `❌ Incorrect. You spelled: "${userInput}"\nThe correct spelling is "${currentWord.word}" - ${currentWord.definition}`;
             }
             
             feedbackDiv.style.display = 'block';
             document.getElementById('nextBtn').style.display = 'inline-block';
             updateScore();
+            updateProgressBar();
         }
 
         function updateScore() {
             document.getElementById('scoreDisplay').textContent = `Score: ${score}/${totalAttempts}`;
+        }
+        
+        function updateProgressBar() {
+            const totalWords = currentWords.length;
+            const wordsCompleted = usedWords.length;
+            const percentage = (wordsCompleted / totalWords) * 100;
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = Math.round(percentage) + '%';
         }
 
         function handleKeyPress(event) {
@@ -610,12 +659,20 @@
             totalAttempts = 0;
             usedWords = [];
         }
+        
+        function loadUSVoice() {
+            const voices = speechSynthesis.getVoices();
+            usVoice = voices.find(voice => 
+                voice.lang === 'en-US' && 
+                (voice.name.includes('Google') || voice.name.includes('Chrome'))
+            ) || voices.find(voice => voice.lang === 'en-US') || voices[0];
+        }
 
         // Initialize speech synthesis on page load
         window.addEventListener('load', function() {
             if ('speechSynthesis' in window) {
-                // Preload voices
-                speechSynthesis.getVoices();
+                loadUSVoice();
+                speechSynthesis.onvoiceschanged = loadUSVoice;
             }
         });
     </script>
