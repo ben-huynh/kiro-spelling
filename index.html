@@ -170,6 +170,59 @@
             margin-bottom: 5px;
         }
         
+        .missed-words {
+            margin: 20px 0;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            text-align: left;
+        }
+        
+        .missed-words h3 {
+            margin: 0 0 10px 0;
+            color: #856404;
+            font-size: 16px;
+        }
+        
+        .missed-word-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 3px;
+            border-left: 3px solid #dc3545;
+        }
+        
+        .user-spelling {
+            font-family: monospace;
+            font-size: 16px;
+        }
+        
+        .correct-letter {
+            color: #28a745;
+        }
+        
+        .incorrect-letter {
+            color: #dc3545;
+            background-color: #f8d7da;
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+        
+        .missing-letter {
+            color: #dc3545;
+            background-color: #f8d7da;
+            padding: 1px 2px;
+            border-radius: 2px;
+            text-decoration: underline;
+        }
+        
+        .correct-spelling {
+            font-weight: bold;
+            color: #28a745;
+            margin-left: 10px;
+        }
+        
         .next-btn {
             background: #FF9800;
             color: white;
@@ -210,6 +263,11 @@
             </div>
             
             <div class="score" id="scoreDisplay">Score: 0/0</div>
+            
+            <div class="missed-words" id="missedWordsContainer" style="display: none;">
+                <h3>📝 Words to Review:</h3>
+                <div id="missedWordsList"></div>
+            </div>
             
             <div class="word-display" id="wordDisplay">
                 Click "Hear Word" to start!
@@ -369,8 +427,7 @@
                 {word: "prestigious", definition: "having high status"},
                 {word: "fraidycat", definition: "cowardly person"},
                 {word: "guttural", definition: "harsh throat sound"},
-                {word: "lo", definition: "Chinese noodle dish (part 1)"},
-                {word: "mein", definition: "Chinese noodle dish (part 2)"},
+                {word: "lo mein", definition: "Chinese noodle dish (part 1)"},
                 {word: "courier", definition: "messenger"},
                 {word: "sans", definition: "without (French)"},
                 {word: "serif", definition: "decorative stroke on letters"},
@@ -378,8 +435,7 @@
                 {word: "stucco", definition: "plaster for walls"},
                 {word: "Frankenstein", definition: "famous monster story"},
                 {word: "schema", definition: "organized plan or framework"},
-                {word: "et", definition: "and (Latin, part 1)"},
-                {word: "cetera", definition: "the rest (Latin, part 2)"},
+                {word: "et cetera", definition: "and the rest"},
                 {word: "vidimus", definition: "we have seen (Latin)"},
                 {word: "delphine", definition: "relating to dolphins"},
                 {word: "slough", definition: "swamp or shed skin"},
@@ -539,6 +595,7 @@
         let score = 0;
         let totalAttempts = 0;
         let usedWords = [];
+        let missedWords = [];
 
         function selectGrade(grade) {
             currentGrade = grade;
@@ -674,6 +731,9 @@
                     correctOptions = correctOptions.concat(alternativeSpellings[correctSpelling]);
                 }
                 feedbackDiv.textContent = `❌ Incorrect. Correct spelling(s): ${correctOptions.join(' or ')} - ${currentWord.definition}`;
+                
+                // Add to missed words list with highlighting
+                addMissedWord(userInput, currentWord.word, currentWord.definition);
             }
             
             feedbackDiv.style.display = 'block';
@@ -683,7 +743,7 @@
             // FIXED: Automatically move to next word after 1.5 seconds
             setTimeout(() => {
                 nextWord();
-            }, 1000);
+            }, 1500);
         }
 
         function updateScore() {
@@ -697,6 +757,70 @@
             
             document.getElementById('progressText').textContent = `Progress: ${wordsCompleted} of ${totalWords} words`;
             document.getElementById('progressFill').style.width = `${progressPercentage}%`;
+        }
+        
+        function addMissedWord(userSpelling, correctSpelling, definition) {
+            const missedWord = {
+                user: userSpelling,
+                correct: correctSpelling,
+                definition: definition
+            };
+            
+            missedWords.push(missedWord);
+            updateMissedWordsList();
+        }
+        
+        function highlightDifferences(userSpelling, correctSpelling) {
+            const userChars = userSpelling.split('');
+            const correctChars = correctSpelling.split('');
+            let result = '';
+            
+            const maxLength = Math.max(userChars.length, correctChars.length);
+            
+            for (let i = 0; i < maxLength; i++) {
+                const userChar = userChars[i] || '';
+                const correctChar = correctChars[i] || '';
+                
+                if (userChar === correctChar) {
+                    result += `<span class="correct-letter">${userChar}</span>`;
+                } else if (userChar && correctChar) {
+                    result += `<span class="incorrect-letter">${userChar}</span>`;
+                } else if (userChar) {
+                    result += `<span class="incorrect-letter">${userChar}</span>`;
+                }
+            }
+            
+            return result;
+        }
+        
+        function updateMissedWordsList() {
+            const container = document.getElementById('missedWordsContainer');
+            const list = document.getElementById('missedWordsList');
+            
+            if (missedWords.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            list.innerHTML = '';
+            
+            missedWords.forEach((missed, index) => {
+                const item = document.createElement('div');
+                item.className = 'missed-word-item';
+                
+                const highlightedUser = highlightDifferences(missed.user, missed.correct);
+                
+                item.innerHTML = `
+                    <div>
+                        <span class="user-spelling">Your spelling: ${highlightedUser}</span>
+                        <span class="correct-spelling">→ ${missed.correct}</span>
+                    </div>
+                    <div style="font-size: 14px; color: #666; margin-top: 4px;">${missed.definition}</div>
+                `;
+                
+                list.appendChild(item);
+            });
         }
 
         function handleKeyPress(event) {
@@ -716,6 +840,7 @@
             score = 0;
             totalAttempts = 0;
             usedWords = [];
+            missedWords = [];
             
             // Reset UI elements
             document.getElementById('spellingInput').style.display = 'inline-block';
@@ -724,6 +849,8 @@
             document.querySelectorAll('.audio-btn')[1].style.display = 'inline-block';
             document.getElementById('progressFill').style.width = '0%';
             document.getElementById('progressText').textContent = 'Progress: 0 of 0 words';
+            document.getElementById('missedWordsContainer').style.display = 'none';
+            document.getElementById('missedWordsList').innerHTML = '';
         }
 
         // Initialize speech synthesis on page load
