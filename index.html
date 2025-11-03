@@ -141,6 +141,35 @@
             border-radius: 5px;
         }
         
+        .progress-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background-color: #f0f0f0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .progress-text {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
         .next-btn {
             background: #FF9800;
             color: white;
@@ -173,6 +202,13 @@
         </div>
         
         <div class="quiz-area" id="quizArea">
+            <div class="progress-container">
+                <div class="progress-text" id="progressText">Progress: 0 of 0 words</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+            
             <div class="score" id="scoreDisplay">Score: 0/0</div>
             
             <div class="word-display" id="wordDisplay">
@@ -526,9 +562,9 @@
         }
 
         function getRandomWord() {
-            if (usedWords.length === currentWords.length) {
-                // Reset if all words have been used
-                usedWords = [];
+            // Check if all words have been used
+            if (usedWords.length >= currentWords.length) {
+                return null; // No more words available
             }
             
             let availableWords = currentWords.filter(word => !usedWords.includes(word.word));
@@ -541,17 +577,36 @@
 
         function nextWord() {
             currentWord = getRandomWord();
+            
+            // Check if quiz is complete
+            if (!currentWord) {
+                endQuiz();
+                return;
+            }
+            
             document.getElementById('wordDisplay').textContent = "Listen carefully and spell the word!";
             document.getElementById('spellingInput').value = '';
             document.getElementById('feedback').style.display = 'none';
             document.getElementById('nextBtn').style.display = 'none';
             document.getElementById('spellingInput').focus();
             updateScore();
+            updateProgress();
             
             // FIXED: Automatically speak the word after a short delay
             setTimeout(() => {
                 speakWord();
             }, 500);
+        }
+        
+        function endQuiz() {
+            document.getElementById('wordDisplay').textContent = `🎉 Quiz Complete! You've finished all ${currentWords.length} words for Grade ${currentGrade}!`;
+            document.getElementById('spellingInput').style.display = 'none';
+            document.querySelector('.submit-btn').style.display = 'none';
+            document.querySelector('.audio-btn').style.display = 'none';
+            document.querySelectorAll('.audio-btn')[1].style.display = 'none';
+            
+            const finalScore = Math.round((score / totalAttempts) * 100);
+            document.getElementById('scoreDisplay').textContent = `Final Score: ${score}/${totalAttempts} (${finalScore}%)`;
         }
 
         function speakWord() {
@@ -590,29 +645,60 @@
             const correctSpelling = currentWord.word.toLowerCase();
             const feedbackDiv = document.getElementById('feedback');
             
+            // Define alternative spellings
+            const alternativeSpellings = {
+                'moustache': ['mustache'],
+                'mustache': ['moustache'],
+                'artifacts': ['artefacts'],
+                'artefacts': ['artifacts']
+            };
+            
             totalAttempts++;
             
-            if (userInput === correctSpelling) {
+            // Check if the input matches the correct spelling or any alternative
+            let isCorrect = userInput === correctSpelling;
+            if (!isCorrect && alternativeSpellings[correctSpelling]) {
+                isCorrect = alternativeSpellings[correctSpelling].includes(userInput);
+            }
+            
+            if (isCorrect) {
                 score++;
                 feedbackDiv.className = 'feedback correct';
-                feedbackDiv.textContent = `✅ Correct! "${currentWord.word}" - ${currentWord.definition}`;
+                if (userInput === correctSpelling) {
+                    feedbackDiv.textContent = `✅ Correct! "${currentWord.word}" - ${currentWord.definition}`;
+                } else {
+                    feedbackDiv.textContent = `✅ Correct! "${userInput}" is an alternative spelling of "${currentWord.word}" - ${currentWord.definition}`;
+                }
             } else {
                 feedbackDiv.className = 'feedback incorrect';
-                feedbackDiv.textContent = `❌ Incorrect. The correct spelling is "${currentWord.word}" - ${currentWord.definition}`;
+                let correctOptions = [currentWord.word];
+                if (alternativeSpellings[correctSpelling]) {
+                    correctOptions = correctOptions.concat(alternativeSpellings[correctSpelling]);
+                }
+                feedbackDiv.textContent = `❌ Incorrect. Correct spelling(s): ${correctOptions.join(' or ')} - ${currentWord.definition}`;
             }
             
             feedbackDiv.style.display = 'block';
             document.getElementById('nextBtn').style.display = 'inline-block';
             updateScore();
             
-            // FIXED: Automatically move to next word after 3 seconds
+            // FIXED: Automatically move to next word after 1.5 seconds
             setTimeout(() => {
                 nextWord();
-            }, 3000);
+            }, 1500);
         }
 
         function updateScore() {
             document.getElementById('scoreDisplay').textContent = `Score: ${score}/${totalAttempts}`;
+        }
+        
+        function updateProgress() {
+            const wordsCompleted = usedWords.length;
+            const totalWords = currentWords.length;
+            const progressPercentage = (wordsCompleted / totalWords) * 100;
+            
+            document.getElementById('progressText').textContent = `Progress: ${wordsCompleted} of ${totalWords} words`;
+            document.getElementById('progressFill').style.width = `${progressPercentage}%`;
         }
 
         function handleKeyPress(event) {
@@ -632,6 +718,14 @@
             score = 0;
             totalAttempts = 0;
             usedWords = [];
+            
+            // Reset UI elements
+            document.getElementById('spellingInput').style.display = 'inline-block';
+            document.querySelector('.submit-btn').style.display = 'inline-block';
+            document.querySelector('.audio-btn').style.display = 'inline-block';
+            document.querySelectorAll('.audio-btn')[1].style.display = 'inline-block';
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressText').textContent = 'Progress: 0 of 0 words';
         }
 
         // Initialize speech synthesis on page load
